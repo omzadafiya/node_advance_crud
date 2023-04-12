@@ -9,10 +9,133 @@ async function addUser(data) {
 }
 async function findUser(id) {
     const userCollection = await user();
-    const user_id = { _id: new ObjectId(id) }
     let data;
     if (id) {
-        data = await userCollection.findOne(user_id);
+        data = await userCollection.aggregate([
+            {
+                $match: {
+                    _id: new ObjectId(id)
+                }
+            },
+            {
+                $lookup: {
+                    from: "cities",
+                    as: "city",
+                    let: {
+                        localId: "$city",
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: [
+                                        "$_id",
+                                        "$$localId"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: 0
+                            }
+                        },
+                    ]
+                }
+            },
+            {
+                $lookup: {
+                    from: "states",
+                    as: "state",
+                    let: {
+                        localId: "$state"
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $eq: [
+                                        "$_id",
+                                        "$$localId"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            $project: {
+                                _id: 0
+                            }
+                        },
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    city: {
+                        $first: "$city.city",
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    state: {
+                        $arrayElemAt: [
+                            "$state.state",
+                            0
+                        ]
+                    }
+                }
+            },
+            // {
+            //     $lookup: {
+            //         from: "cities",
+            //         localField: "city",
+            //         foreignField: "_id",
+            //         as: "citys"
+            //     }
+            // },
+            // {
+            //     $lookup: {
+            //         from: "states",
+            //         localField: "state",
+            //         foreignField: "_id",
+            //         as: "states"
+            //     }
+            // },
+            // {
+            //     $project: {
+            //         name: 1,
+            //         address: 1,
+            //         gender: 1,
+            //         age: 1,
+            //         citys: 1,
+            //         states: 1,
+            //     }
+            // },
+            // {
+            //     $project: {
+            //         "citys._id": 0,
+            //         "states._id": 0
+            //     }
+            // },
+            // {
+            //     $unwind: "$citys"
+            // },
+            // {
+            //     $unwind: "$states"
+            // },
+            // {
+            //     $project: {
+            //         name: 1,
+            //         address: 1,
+            //         gender: 1,
+            //         age: 1,
+            //         city: "$citys.city",
+            //         state: "$states.state"
+            //     }
+            // }
+
+        ]).toArray();
     } else {
         data = await userCollection.find().toArray();
     }
